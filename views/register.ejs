@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Page</title>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Register</h2>
+        <input type="text" id="username" placeholder="Username" required>
+        <input type="password" id="password" placeholder="Password" required>
+        <button onclick="register()">Register</button>
+        <p class="error" id="error"></p>
+        <p>Already have an account? <a href="/">Login</a></p>
+    </div>
+    <script>
+        async function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorElement = document.getElementById('error');
+
+            if (!username || !password) {
+                errorElement.innerText = 'Please fill in all fields.';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert('Registration successful');
+                    window.location.href = '/';
+                } else {
+                    errorElement.innerText = data.message;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                errorElement.innerText = 'An error occurred. Please try again.';
+            }
+        }
+    </script>
+</body>
+</html>
