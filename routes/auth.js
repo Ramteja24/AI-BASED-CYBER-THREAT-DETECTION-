@@ -35,6 +35,9 @@ router.post('/login', detectPayload, async (req, res) => {
     const { username, password } = req.body;
 
     try {
+        // Debugging log
+        console.log("Received login request:", req.body);
+
         // Check for brute force attempts
         const isBlocked = await checkBruteForce(req.ip);
         if (isBlocked) {
@@ -44,9 +47,10 @@ router.post('/login', detectPayload, async (req, res) => {
         // Check if user exists
         const user = await User.findOne({ username });
         if (!user) {
-            // Log failed attempt
+            console.log("User not found, logging failed attempt.");
             await LoginAttempt.create({
                 ip: req.ip,
+                username: username || "Unknown", // FIX: Always provide a username
                 status: 'Failed',
                 timestamp: new Date()
             });
@@ -56,9 +60,10 @@ router.post('/login', detectPayload, async (req, res) => {
         // Compare password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            // Log failed attempt
+            console.log("Password mismatch, logging failed attempt.");
             await LoginAttempt.create({
                 ip: req.ip,
+                username, // FIX: Ensuring username is provided
                 status: 'Failed',
                 timestamp: new Date()
             });
@@ -68,14 +73,16 @@ router.post('/login', detectPayload, async (req, res) => {
         // If successful, log success and generate token
         await LoginAttempt.create({
             ip: req.ip,
+            username,
             status: 'Success',
             timestamp: new Date()
         });
 
         const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
         res.status(200).json({ token, message: 'Login successful' });
+
     } catch (error) {
-        console.error(error);
+        console.error("Error during login:", error);
         res.status(500).json({ message: 'Server error' });
     }
 });
