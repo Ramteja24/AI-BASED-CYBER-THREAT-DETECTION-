@@ -7,39 +7,17 @@ const LoginAttempt = require('../models/LoginAttempt');
 const checkBruteForce = require('../middlewares/bruteForceCheck');
 const detectPayload = require('../middlewares/detectPayload');
 
-// Register Route
-router.post('/register', async (req, res) => {
-    const { username, password } = req.body;
-
-    try {
-        // Check if user already exists
-        const existingUser = await User.findOne({ username });
-        if (existingUser) {
-            return res.status(409).json({ message: 'User already exists' });
-        }
-
-        // Hash password and save user
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = new User({ username, password: hashedPassword });
-        await newUser.save();
-
-        res.status(201).json({ message: 'User registered successfully' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
-    }
-});
-
-// Login Route with Brute Force and Payload Detection Middleware
 router.post('/login', detectPayload, async (req, res) => {
     const { username, password } = req.body;
 
     try {
-        // Debugging log
         console.log("Received login request:", req.body);
 
+        // Get full client IP address
+        const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+
         // Check for brute force attempts
-        const isBlocked = await checkBruteForce(req.ip);
+        const isBlocked = await checkBruteForce(clientIp);
         if (isBlocked) {
             return res.status(403).json({ message: 'Too many failed attempts. You are temporarily blocked.' });
         }
@@ -49,8 +27,8 @@ router.post('/login', detectPayload, async (req, res) => {
         if (!user) {
             console.log("User not found, logging failed attempt.");
             await LoginAttempt.create({
-                ip: req.ip,
-                username: username || "Unknown", // FIX: Always provide a username
+                ip: clientIp, // Updated to capture full IP
+                username: username || "Unknown",
                 status: 'Failed',
                 timestamp: new Date()
             });
@@ -62,8 +40,8 @@ router.post('/login', detectPayload, async (req, res) => {
         if (!isMatch) {
             console.log("Password mismatch, logging failed attempt.");
             await LoginAttempt.create({
-                ip: req.ip,
-                username, // FIX: Ensuring username is provided
+                ip: clientIp,
+                username,
                 status: 'Failed',
                 timestamp: new Date()
             });
@@ -72,7 +50,7 @@ router.post('/login', detectPayload, async (req, res) => {
 
         // If successful, log success and generate token
         await LoginAttempt.create({
-            ip: req.ip,
+            ip: clientIp,
             username,
             status: 'Success',
             timestamp: new Date()
@@ -86,5 +64,4 @@ router.post('/login', detectPayload, async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
-
 module.exports = router;
