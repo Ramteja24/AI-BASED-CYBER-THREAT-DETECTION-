@@ -15,7 +15,7 @@ router.post('/login', detectPayload, async (req, res) => {
         console.log("Received login request:", { username });
 
         // Get full client IP address
-        const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+        const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
         console.log(`Client IP: ${clientIp}`);
 
         // Check for brute force attempts
