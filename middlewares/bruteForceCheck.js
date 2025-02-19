@@ -1,45 +1,44 @@
 const LoginAttempt = require('../models/LoginAttempt');
 
-// Set block duration (e.g., 30 minutes)
-const BLOCK_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+const MAX_ATTEMPTS = 10;  // Max failed attempts before block
+const BLOCK_TIME = 30 * 60 * 1000; // 30 minutes in milliseconds
 
 const checkBruteForce = async (ip) => {
     console.log(`Checking brute force for IP: ${ip}`);
 
-    // Check if IP is currently blocked
-    const blockedRecord = await LoginAttempt.findOne({
+    // 1. Check if IP is already blocked
+    const blockedUser = await LoginAttempt.findOne({
         ip: ip,
-        status: 'Warning',
-        blockedUntil: { $gt: new Date() }
+        status: 'Blocked',
+        blockedUntil: { $gt: new Date() } // User is still in blocked period
     });
 
-    if (blockedRecord) {
-        console.log('IP is temporarily blocked:', ip);
-        return true;
+    if (blockedUser) {
+        console.log(`IP ${ip} is blocked until ${blockedUser.blockedUntil}`);
+        return true; // User is blocked
     }
 
-    // Fetch last 11 attempts
-    const attempts = await LoginAttempt.find({ ip, status: 'Failed' }).sort({ timestamp: -1 }).limit(11);
+    // 2. Count failed attempts in the last 30 minutes
+    const failedAttempts = await LoginAttempt.countDocuments({
+        ip: ip,
+        status: 'Failed',
+        timestamp: { $gte: new Date(Date.now() - BLOCK_TIME) }
+    });
 
-    // If more than 10 failed attempts, add a warning
-    if (attempts.length > 10) {
-        console.log('Potential brute force attack detected.');
-        
-        // Check if warning is already recorded
-        const lastWarning = await LoginAttempt.findOne({ ip, status: 'Warning' });
-        
-        if (!lastWarning) {
-            // Store warning and block time in MongoDB
-            await LoginAttempt.create({
-                ip: ip,
-                status: 'Warning',
-                warning: 'Exceeding failed attempts',
-                blockedUntil: new Date(Date.now() + BLOCK_DURATION)  // Set block time
-            });
-            console.log('Warning and block stored in MongoDB.');
-        }
-        
-        return true;
+    console.log(`Failed attempts for ${ip}: ${failedAttempts}`);
+
+    // 3. If 10+ failed attempts, block the user
+    if (failedAttempts >= MAX_ATTEMPTS) {
+        console.log(`Blocking IP: ${ip} for ${BLOCK_TIME / 60000} minutes`);
+
+        await LoginAttempt.create({
+            ip: ip,
+            status: 'Blocked',
+            blockedUntil: new Date(Date.now() + BLOCK_TIME),
+            timestamp: new Date()
+        });
+
+        return true; // User is now blocked
     }
 
     return false;
