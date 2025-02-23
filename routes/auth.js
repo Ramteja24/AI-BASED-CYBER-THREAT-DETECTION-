@@ -7,6 +7,8 @@ const LoginAttempt = require('../models/LoginAttempt');
 const checkBruteForce = require('../middlewares/bruteForceCheck');
 const detectPayload = require('../middlewares/detectPayload');
 
+const MAX_ATTEMPTS = 10;
+const BLOCK_TIME = 30 * 60 * 1000; // 30 minutes in milliseconds
 
 router.post('/login', detectPayload, async (req, res) => {
     const { username, password } = req.body;
