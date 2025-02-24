@@ -1,15 +1,10 @@
 const mongoose = require('mongoose');
 
-const PayloadPatternSchema = new mongoose.Schema({
-    type: {
-        type: String,
-        required: true,
-        enum: ['SQL Injection', 'XSS'],
-    },
-    pattern: {
-        type: String,
-        required: true,
-    }
+const payloadPatternSchema = new mongoose.Schema({
+    ip: { type: String, required: true },
+    username: { type: String, default: "Unknown" },
+    type: { type: String, required: true },  // 'SQL Injection' or 'XSS Attack'
+    timestamp: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('PayloadPattern', PayloadPatternSchema);
+module.exports = mongoose.model('PayloadPattern', payloadPatternSchema);
