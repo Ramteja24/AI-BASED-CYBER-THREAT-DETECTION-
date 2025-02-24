@@ -4,11 +4,10 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const LoginAttempt = require('../models/LoginAttempt');
+const PayloadAttempt = require('../models/PayloadAttempt'); // New model for SQL/XSS attacks
 const checkBruteForce = require('../middlewares/bruteForceCheck');
-const detectPayload = require('../middlewares/detectPayload');
 
-
-router.post('/login', detectPayload, async (req, res) => {
+router.post('/login', async (req, res) => {
     const { username, password } = req.body;
 
     try {
@@ -18,14 +17,52 @@ router.post('/login', detectPayload, async (req, res) => {
         const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
         console.log(`Client IP: ${clientIp}`);
 
-        // Check for brute force attempts
+        // **SQL Injection & XSS Detection**
+        const sqlInjectionPatterns = [/select.*from/i, /union.*select/i, /insert.*into/i, /--/];
+        const xssPatterns = [/<script.*?>.*?<\/script>/i, /on\w+=["'].*?["']/i, /<img.*?onerror=.*?>/i];
+
+        let detectedPattern = null;
+
+        // Check for SQL Injection
+        for (let pattern of sqlInjectionPatterns) {
+            if (pattern.test(username) || pattern.test(password)) {
+                detectedPattern = "SQL Injection";
+                break;
+            }
+        }
+
+        // Check for XSS
+        if (!detectedPattern) {
+            for (let pattern of xssPatterns) {
+                if (pattern.test(username) || pattern.test(password)) {
+                    detectedPattern = "XSS Attack";
+                    break;
+                }
+            }
+        }
+
+        // **If attack is detected, log it separately**
+        if (detectedPattern) {
+            console.log(`Detected ${detectedPattern} from IP: ${clientIp}`);
+
+            await PayloadAttempt.create({
+                ip: clientIp,
+                username: username || "Unknown",
+                attackType: detectedPattern,
+                timestamp: new Date()
+            });
+
+            return res.status(403).json({ message: `Malicious activity detected (${detectedPattern}). Access denied.` });
+        }
+
+        // **Check for brute force attempts**
         const isBlocked = await checkBruteForce(clientIp);
         if (isBlocked) {
             console.warn(`Blocked login attempt from IP: ${clientIp}`);
             return res.status(403).json({ message: 'Too many failed attempts. You are temporarily blocked.' });
         }
 
-        // Validate user existence
+        // **Validate user existence**
         const user = await User.findOne({ username });
         if (!user) {
             console.log(`User not found: ${username}`);
@@ -38,7 +75,7 @@ router.post('/login', detectPayload, async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
-        // Compare password
+        // **Compare password**
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             console.log(`Password mismatch for user: ${username}`);
@@ -51,10 +88,10 @@ router.post('/login', detectPayload, async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
-        // Clear old failed attempts upon successful login
+        // **Clear old failed attempts upon successful login**
         await LoginAttempt.deleteMany({ ip: clientIp, status: 'Failed' });
 
-        // Log successful login attempt
+        // **Log successful login attempt**
         await LoginAttempt.create({
             ip: clientIp,
             username,
@@ -62,7 +99,7 @@ router.post('/login', detectPayload, async (req, res) => {
             timestamp: new Date()
         });
 
-        // Generate JWT token
+        // **Generate JWT token**
         const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
         console.log(`Login successful for user: ${username}`);
