@@ -1,9 +1,10 @@
 const LoginAttempt = require('../models/LoginAttempt');
+const PayloadPattern = require('../models/PayloadPattern'); // Import new model
 
 const sqlInjectionPatterns = [
     /(\b(SELECT|UPDATE|DELETE|INSERT|DROP|UNION|ALTER|CREATE|EXEC)\b)/i,
-    /(--|#|\/\*|\*\/)/,  // Comment patterns
-    /(\b(OR|AND)\s+\d+=\d+)/i  // OR 1=1, AND 1=1
+    /(--|#|\/\*|\*\/)/,  // SQL comment patterns
+    /(\b(OR|AND)\s+\d+=\d+)/i  // OR 1=1, AND 1=1 patterns
 ];
 
 const xssPatterns = [
@@ -25,12 +26,10 @@ module.exports = async (req, res, next) => {
     }
 
     if (attackType) {
-        await LoginAttempt.create({
+        await PayloadPattern.create({
             ip: clientIp,
             username: username || "Unknown",
-            status: 'Failed',
-            timestamp: new Date(),
-            warning: attackType  // Logging SQL/XSS under 'warning'
+            type: attackType  // Logging SQL/XSS under separate collection
         });
 
         return res.status(400).json({ message: `Potential ${attackType} detected. Access denied.` });
