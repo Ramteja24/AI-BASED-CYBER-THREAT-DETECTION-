@@ -1,27 +1,40 @@
-const PayloadPattern = require('../models/PayloadPattern');
+const LoginAttempt = require('../models/LoginAttempt');
 
-const detectPayload = async (req, res, next) => {
-    const inputFields = Object.values(req.body).join(' ');
+const sqlInjectionPatterns = [
+    /(\b(SELECT|UPDATE|DELETE|INSERT|DROP|UNION|ALTER|CREATE|EXEC)\b)/i,
+    /(--|#|\/\*|\*\/)/,  // Comment patterns
+    /(\b(OR|AND)\s+\d+=\d+)/i  // OR 1=1, AND 1=1
+];
 
-    // Fetch patterns from MongoDB
-    const patterns = await PayloadPattern.find({});
-    for (const pattern of patterns) {
-        const regex = new RegExp(pattern.pattern, 'i');
-        if (regex.test(inputFields)) {
-            console.log(`Potential ${pattern.type} Attack Detected!`);
-            
-            // Log attack in MongoDB
-            await LoginAttempt.create({
-                ip: req.ip,
-                status: 'Attack Detected',
-                warning: `${pattern.type} Pattern Matched`
-            });
+const xssPatterns = [
+    /(<script\b[^>]*>[\s\S]*?<\/script>)/i,
+    /((on\w+)=["']?[^"'\s>]+["']?)/i,  // Inline event handlers
+    /(\b(alert|document\.cookie|window\.location|eval)\b)/i
+];
 
-            // Return error response
-            return res.status(403).json({ message: `Suspicious activity detected: ${pattern.type}` });
-        }
+module.exports = async (req, res, next) => {
+    const { username, password } = req.body;
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
+
+    let attackType = null;
+
+    if (sqlInjectionPatterns.some(pattern => pattern.test(username) || pattern.test(password))) {
+        attackType = 'SQL Injection';
+    } else if (xssPatterns.some(pattern => pattern.test(username) || pattern.test(password))) {
+        attackType = 'XSS Attack';
     }
+
+    if (attackType) {
+        await LoginAttempt.create({
+            ip: clientIp,
+            username: username || "Unknown",
+            status: 'Failed',
+            timestamp: new Date(),
+            warning: attackType  // Logging SQL/XSS under 'warning'
+        });
+
+        return res.status(400).json({ message: `Potential ${attackType} detected. Access denied.` });
+    }
+
     next();
 };
-
-module.exports = detectPayload;
