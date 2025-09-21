@@ -105,12 +105,7 @@ Balanced Dataset: Applied sampling techniques to handle class imbalance
 
 ☁️ Deploy on cloud platforms for large-scale monitoring
 
-📷 Screenshots / Demo
-🔐 Brute Force Attack
-<img width="500" height="280" src="https://github.com/user-attachments/assets/f579080c-1418-44fe-8c96-f87f581a9247" /> <img width="500" height="280" src="https://github.com/user-attachments/assets/5e8e083f-538f-4b8a-a1f2-2d6d5a400f2e" /> <img width="500" height="280" src="https://github.com/user-attachments/assets/0c2d3981-6c76-48cd-83e7-d264e3886e32" /> <img width="500" height="280" src="https://github.com/user-attachments/assets/31bc3406-569b-4f26-b5d4-7f291d769234" /> <img width="500" height="280" src="https://github.com/user-attachments/assets/77664176-8fa9-4a42-bf1c-d05261bfc4ed" />
 
-🤖 AI/ML Prediction
-<img width="500" height="280" src="https://github.com/user-attachments/assets/0b25e415-f071-410a-9973-433be93628ee" /> <img width="500" height="280" src="https://github.com/user-attachments/assets/81e95cec-c730-4f70-a1c7-6426fd1e05d2" />
 👨‍💻 Contributors
 
 Ramteja Reddy Boggala – Project Lead, AI/ML & Backend
